@@ -153,9 +153,9 @@ tags: [xiaohongshu, social-media, live-stream, data-analysis, growth]
 
 ## 交互工具：直播数据诊断 HTML
 
-当用户（或其女票）需要可视化填表诊断时，使用 `templates/直播数据诊断.html`。
+当用户（或其女票/同事）需要可视化填表诊断时，使用 skill 自带的 `templates/直播数据诊断.html`。
 
-**文件位置**：`~/Desktop/hermes/直播数据诊断.html`（也存于本 skill 的 `templates/`）
+**文件位置**：skill 目录下 `templates/直播数据诊断.html`
 
 **页面结构（上传优先）**：
 1. 顶部 — 📷 拖拽/点击上传区（支持 PNG/JPG/HEIC）
@@ -165,14 +165,15 @@ tags: [xiaohongshu, social-media, live-stream, data-analysis, growth]
 5. 结果区 — 5个指标卡 + 四段诊断 + 新手提醒 + 优化建议
 
 **给用户的使用流程**：
-1. 女票手机上截图小红书直播数据后台
-2. 电脑打开 HTML → 拖入截图（上方预览对照，下方填表）
+1. 手机上截图小红书直播数据后台
+2. 发到电脑 → 双击 HTML 打开 → 拖入截图（上方预览对照，下方填表）
 3. 对照预览填完数字 → 点「开始诊断」
 4. 纯本地运行，无数据上传 🔒
 
-**从 Hermes 发送给用户**：
-1. `write_file` 生成 `~/Desktop/hermes/直播数据诊断.html`（从 skill `templates/` 复制）
-2. `send_message` 发送文件：`MEDIA:/Users/yanxi/Desktop/hermes/直播数据诊断.html`
+**从 Hermes Agent 发送给用户**：
+1. 找到 skill 的 templates 目录：`skill_view('xhs-account-data-analysis', file_path='templates/直播数据诊断.html')` 获取 HTML 内容
+2. 用 `write_file` 写到用户桌面上
+3. `send_message` 发送文件给用户
 
 **展示 UI 截图给用户**：`browser_navigate` 打开文件 → `browser_vision` 截图。
 

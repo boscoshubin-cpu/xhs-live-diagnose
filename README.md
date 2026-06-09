@@ -48,15 +48,17 @@
 
 纯 HTML + CSS + JavaScript，零依赖，双击即用。
 
-## 🤖 Hermes Agent 用户
+## 🤖 AI Agent 用户
 
-直接安装为 Skill：
-
+**Hermes Agent** — 一条命令安装为 Skill：
 ```bash
 hermes skills install boscoshubin-cpu/xhs-live-diagnose
 ```
 
-或手动下载 `SKILL.md` 放到 `~/.hermes/skills/social-media/` 目录。
+**Cursor / Cline / Claude Code / Copilot 等其他 Agent** — 复制 `AGENTS.md` 内容到 Custom Instructions / `.cursorrules` / `.clinerules`：
+- 内置完整诊断知识库（健康基准、漏斗阈值、观众画像标准）
+- 固定的输出结构模板（总览→解读→交叉验证→推理→建议）
+- 可直接分析用户发来的直播数据截图
 
 ## 📖 诊断方法论
 

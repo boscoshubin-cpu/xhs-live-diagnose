@@ -48,6 +48,16 @@
 
 纯 HTML + CSS + JavaScript，零依赖，双击即用。
 
+## 🤖 Hermes Agent 用户
+
+直接安装为 Skill：
+
+```bash
+hermes skills install boscoshubin-cpu/xhs-live-diagnose
+```
+
+或手动下载 `SKILL.md` 放到 `~/.hermes/skills/social-media/` 目录。
+
 ## 📖 诊断方法论
 
 完整的数据分析框架和优化策略，参见 [docs/诊断方法论.md](docs/诊断方法论.md)：

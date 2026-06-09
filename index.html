@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>小红书直播数据诊断</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --card: #161622;
+    --border: #1e1e30;
+    --border-glow: #2a2a45;
+    --text: #e0e0e8;
+    --sub: #7a7a95;
+    --accent: #00c2ff;
+    --accent2: #7b4fff;
+    --accent3: #00e5a0;
+    --green: #00e5a0;
+    --yellow: #ffb347;
+    --red: #ff4757;
+    --radius: 14px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, 'SF Pro Display', 'Inter', 'PingFang SC', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* 星空粒子背景 */
+  .stars {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 0;
+  }
+  .star {
+    position: absolute;
+    background: #fff;
+    border-radius: 50%;
+    animation: twinkle var(--dur) ease-in-out infinite;
+    animation-delay: var(--delay);
+    opacity: 0;
+  }
+  @keyframes twinkle {
+    0%, 100% { opacity: 0.15; }
+    50% { opacity: 0.7; }
+  }
+
+  /* 网格 */
+  .grid-bg {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 0; opacity: 0.03;
+    background-image:
+      linear-gradient(rgba(120,130,255,0.3) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(120,130,255,0.3) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+
+  .container {
+    max-width: 820px; margin: 0 auto; padding: 30px 20px 60px;
+    position: relative; z-index: 1;
+  }
+
+  /* 标题 */
+  .header {
+    text-align: center; margin-bottom: 32px;
+  }
+  .header h1 {
+    font-size: 26px; font-weight: 700; letter-spacing: 1px;
+    background: linear-gradient(135deg, #fff 0%, #a0b4ff 50%, var(--accent) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 6px;
+  }
+  .header .subtitle {
+    font-size: 13px; color: var(--sub); letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* 上传区 */
+  .upload-zone {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 20px;
+    padding: 56px 24px;
+    text-align: center; cursor: pointer;
+    position: relative; overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    margin-bottom: 20px;
+  }
+  .upload-zone::before {
+    content: '';
+    position: absolute; inset: -2px;
+    border-radius: 22px; padding: 2px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2), var(--accent));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    opacity: 0; transition: opacity 0.5s;
+  }
+  .upload-zone:hover::before { opacity: 1; }
+  .upload-zone:hover {
+    border-color: transparent;
+    background: #141425;
+    box-shadow: 0 0 40px rgba(0,194,255,0.08), 0 0 80px rgba(123,79,255,0.04);
+  }
+  .upload-zone.has-image {
+    padding: 20px;
+    border-color: var(--border-glow);
+  }
+  .upload-zone.has-image::before { opacity: 0.5; }
+
+  .upload-icon-wrap {
+    width: 72px; height: 72px; margin: 0 auto 18px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(0,194,255,0.1), rgba(123,79,255,0.1));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px;
+    border: 1px solid rgba(0,194,255,0.2);
+    transition: all 0.3s;
+  }
+  .upload-zone:hover .upload-icon-wrap {
+    box-shadow: 0 0 30px rgba(0,194,255,0.15);
+    border-color: rgba(0,194,255,0.4);
+  }
+  .upload-text {
+    font-size: 15px; color: #b0b5c8;
+    font-weight: 500; margin-bottom: 6px;
+  }
+  .upload-hint {
+    font-size: 12px; color: var(--sub); letter-spacing: 0.5px;
+  }
+  .upload-input { display: none; }
+
+  /* 图片预览 */
+  .preview-wrap {
+    display: none; position: relative;
+    border-radius: 14px; overflow: hidden; margin-bottom: 16px;
+    border: 1px solid var(--border-glow);
+    background: #000;
+  }
+  .preview-wrap.show { display: block; }
+  .preview-wrap img { width: 100%; max-height: 400px; object-fit: contain; display: block; }
+  .preview-actions {
+    position: absolute; top: 10px; right: 10px; display: flex; gap: 8px;
+  }
+  .preview-btn {
+    background: rgba(10,10,20,0.7); color: #c0c8d8; border: 1px solid rgba(255,255,255,0.1);
+    padding: 6px 14px; border-radius: 8px; font-size: 12px;
+    cursor: pointer; backdrop-filter: blur(12px);
+    transition: all 0.2s;
+  }
+  .preview-btn:hover { background: rgba(20,20,40,0.85); border-color: rgba(0,194,255,0.4); }
+
+  /* 分区 */
+  .section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px 24px; margin-bottom: 12px;
+    position: relative;
+    transition: border-color 0.3s;
+  }
+  .section:hover { border-color: var(--border-glow); }
+  .section-title {
+    font-size: 13px; font-weight: 600; margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px;
+    color: #c0c8d8; text-transform: uppercase; letter-spacing: 1px;
+  }
+  .section-title::before {
+    content: ''; width: 3px; height: 14px;
+    border-radius: 2px;
+    background: linear-gradient(180deg, var(--accent), var(--accent2));
+  }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 520px) { .grid { grid-template-columns: 1fr; } }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label {
+    font-size: 11px; color: var(--sub); font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .field input, .field select {
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px; font-size: 14px; outline: none;
+    background: var(--surface); color: var(--text);
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  .field input:focus, .field select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0,194,255,0.08);
+  }
+  .field select { cursor: pointer; }
+  .field select option { background: var(--surface); color: var(--text); }
+  .field .unit { font-size: 10px; color: #555; letter-spacing: 0.3px; }
+
+  /* 按钮 */
+  .btn {
+    width: 100%; padding: 14px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff; border: none; border-radius: 10px;
+    font-size: 15px; font-weight: 600; cursor: pointer;
+    margin-top: 6px; letter-spacing: 1px;
+    transition: all 0.3s; position: relative; overflow: hidden;
+  }
+  .btn::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .btn:hover { box-shadow: 0 0 30px rgba(0,194,255,0.25); transform: translateY(-1px); }
+  .btn:hover::after { opacity: 1; }
+  .btn:active { transform: scale(0.98); }
+
+  /* 结果区 */
+  #results { display: none; }
+  .gauge-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  .gauge-card {
+    flex: 1; min-width: 110px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 12px; text-align: center;
+    transition: border-color 0.3s;
+  }
+  .gauge-card:hover { border-color: var(--border-glow); }
+  .gauge-label { font-size: 10px; color: var(--sub); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .gauge-value { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .gauge-bar { height: 4px; border-radius: 2px; margin-top: 8px; background: var(--border); overflow: hidden; }
+  .gauge-fill { height: 100%; border-radius: 2px; transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+
+  .analysis-block {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px 22px; margin-bottom: 10px;
+    transition: border-color 0.3s;
+  }
+  .analysis-block:hover { border-color: var(--border-glow); }
+  .analysis-block h3 { font-size: 14px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; font-weight: 600; }
+  .tag { display: inline-block; padding: 2px 10px; border-radius: 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.5px; }
+  .tag-green { background: rgba(0,229,160,0.12); color: var(--green); }
+  .tag-yellow { background: rgba(255,179,71,0.12); color: var(--yellow); }
+  .tag-red { background: rgba(255,71,87,0.12); color: var(--red); }
+  .insight { margin-top: 6px; font-size: 13px; color: #b0b8c8; }
+  .insight li { margin-bottom: 5px; list-style: none; padding-left: 16px; position: relative; }
+  .insight li::before { content: '▸'; position: absolute; left: 0; color: var(--accent); font-size: 10px; top: 2px; }
+  .flow-row { display: flex; align-items: center; gap: 6px; margin: 12px 0; font-size: 12px; }
+  .flow-step { flex: 1; text-align: center; padding: 8px; background: var(--surface); border-radius: 8px; border: 1px solid var(--border); }
+  .flow-arrow { color: #3a3a55; font-size: 16px; }
+  .flow-val { font-weight: 700; font-size: 15px; display: block; color: #e0e0e8; }
+  .highlight {
+    background: rgba(255,179,71,0.06);
+    border: 1px solid rgba(255,179,71,0.15);
+    padding: 10px 14px; border-radius: 8px;
+    font-size: 13px; margin-top: 10px; color: #c0b080;
+  }
+  .highlight strong { color: var(--yellow); }
+
+  .hidden { display: none !important; }
+
+  /* footer */
+  .footer {
+    text-align: center; margin-top: 40px;
+    font-size: 11px; color: #2a2a40; letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+
+<!-- 星空 -->
+<div class="stars" id="stars"></div>
+<div class="grid-bg"></div>
+
+<div class="container">
+  <div class="header">
+    <h1>📊 小红书直播数据诊断</h1>
+    <div class="subtitle">Live Stream Analytics</div>
+  </div>
+
+  <!-- 上传区 -->
+  <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+    <div class="upload-icon-wrap">📷</div>
+    <div class="upload-text">拖拽直播数据截图到此处</div>
+    <div class="upload-hint">或点击上传 · PNG / JPG / HEIC</div>
+  </div>
+  <input type="file" class="upload-input" id="fileInput" accept="image/*" onchange="handleFile(this.files[0])">
+
+  <!-- 图片预览 -->
+  <div class="preview-wrap" id="previewWrap">
+    <img id="previewImg" alt="截图预览">
+    <div class="preview-actions">
+      <button class="preview-btn" onclick="event.stopPropagation(); document.getElementById('fileInput').click()">🔄 换图</button>
+      <button class="preview-btn" onclick="event.stopPropagation(); removeImage()">✕ 移除</button>
+    </div>
+  </div>
+
+  <!-- 数据输入 -->
+  <div id="inputSection" class="hidden">
+    <div class="section">
+      <div class="section-title">基础数据</div>
+      <div class="grid">
+        <div class="field"><label>观看人数</label><input type="number" id="viewers" placeholder="253" min="0"><span class="unit">&lt;500偏低 · 500-2000中等 · 2000+优秀</span></div>
+        <div class="field"><label>成交金额 ¥</label><input type="number" id="revenue" placeholder="722" min="0" step="0.01"></div>
+        <div class="field"><label>成交人数</label><input type="number" id="buyers" placeholder="3" min="0"></div>
+        <div class="field"><label>客单价 ¥</label><input type="number" id="aov" placeholder="144" min="0" step="0.01"></div>
+        <div class="field"><label>平均观看时长</label><input type="text" id="avgTime" placeholder="2:34"><span class="unit">&lt;2min差 · 2-5min一般 · 5min+优秀</span></div>
+        <div class="field"><label>互动人数</label><input type="number" id="interactions" placeholder="12" min="0"></div>
+        <div class="field"><label>新增粉丝</label><input type="number" id="newFollowers" placeholder="5" min="0"></div>
+        <div class="field"><label>预约人数</label><input type="number" id="reservations" placeholder="0" min="0"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">流量来源 %</div>
+      <div class="grid">
+        <div class="field"><label>推荐流占比</label><input type="number" id="trafficRec" placeholder="73" min="0" max="100"></div>
+        <div class="field"><label>笔记引流</label><input type="number" id="trafficNote" placeholder="0" min="0" max="100"></div>
+        <div class="field"><label>预约进入</label><input type="number" id="trafficReserve" placeholder="0" min="0" max="100"></div>
+        <div class="field"><label>回访观众</label><input type="number" id="trafficReturn" placeholder="0" min="0" max="100"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">观众画像</div>
+      <div class="grid">
+        <div class="field"><label>女性占比 %</label><input type="number" id="genderFemale" placeholder="93" min="0" max="100"></div>
+        <div class="field"><label>高消费力占比 %</label><input type="number" id="spendingHigh" placeholder="60" min="0" max="100"></div>
+        <div class="field"><label>主力年龄段</label><select id="ageGroup"><option value="">选择</option><option>18-24</option><option>25-30</option><option>31-35</option><option>36-40</option><option>40+</option></select></div>
+        <div class="field"><label>开播场次</label><input type="number" id="sessionNum" placeholder="1" min="1"><span class="unit">1-3场为新⼿扶持期</span></div>
+      </div>
+    </div>
+
+    <button class="btn" onclick="analyze()">🔍 开始诊断</button>
+  </div>
+
+  <!-- 结果区 -->
+  <div id="results">
+    <div class="section">
+      <div class="section-title">核心指标</div>
+      <div class="gauge-row" id="gauges"></div>
+    </div>
+    <div id="diagnosis"></div>
+  </div>
+
+  <div class="footer">HERMES · LIVE ANALYTICS</div>
+</div>
+
+<script>
+// 星空
+(function() {
+  const stars = document.getElementById('stars');
+  const count = 80;
+  let html = '';
+  for (let i = 0; i < count; i++) {
+    const size = Math.random() * 2 + 0.5;
+    const x = Math.random() * 100;
+    const y = Math.random() * 100;
+    const dur = Math.random() * 3 + 2;
+    const delay = Math.random() * 4;
+    html += `<div class="star" style="
+      width:${size}px;height:${size}px;
+      left:${x}%;top:${y}%;
+      --dur:${dur}s;--delay:${delay}s;
+    "></div>`;
+  }
+  stars.innerHTML = html;
+})();
+
+// 上传
+const uploadZone = document.getElementById('uploadZone');
+const previewWrap = document.getElementById('previewWrap');
+const previewImg = document.getElementById('previewImg');
+const inputSection = document.getElementById('inputSection');
+
+['dragenter','dragover','dragleave','drop'].forEach(evt => {
+  document.body.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); });
+});
+uploadZone.addEventListener('dragover', () => uploadZone.style.borderColor = 'var(--accent)');
+uploadZone.addEventListener('dragleave', () => { if (!uploadZone.classList.contains('has-image')) uploadZone.style.borderColor = ''; });
+uploadZone.addEventListener('drop', e => {
+  uploadZone.style.borderColor = '';
+  const f = e.dataTransfer.files[0];
+  if (f) handleFile(f);
+});
+
+function handleFile(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    previewImg.src = e.target.result;
+    previewWrap.classList.add('show');
+    uploadZone.classList.add('has-image');
+    uploadZone.querySelector('.upload-icon-wrap').textContent = '✅';
+    uploadZone.querySelector('.upload-text').textContent = '截图已上传';
+    inputSection.classList.remove('hidden');
+    document.getElementById('results').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeImage() {
+  previewImg.src = '';
+  previewWrap.classList.remove('show');
+  uploadZone.classList.remove('has-image');
+  uploadZone.querySelector('.upload-icon-wrap').textContent = '📷';
+  uploadZone.querySelector('.upload-text').textContent = '拖拽直播数据截图到此处';
+  uploadZone.style.borderColor = '';
+  inputSection.classList.add('hidden');
+  document.getElementById('results').style.display = 'none';
+}
+
+// 分析
+function parseTime(s) {
+  const p = String(s).split(':');
+  return p.length >= 2 ? parseInt(p[0])*60 + parseInt(p[1]) : 0;
+}
+
+function gaugeColor(v, low, mid, high, rev) {
+  if (rev) return v <= high ? 'var(--green)' : v <= mid ? 'var(--yellow)' : 'var(--red)';
+  return v >= high ? 'var(--green)' : v >= mid ? 'var(--yellow)' : 'var(--red)';
+}
+
+function analyze() {
+  const v = id => parseFloat(document.getElementById(id).value) || 0;
+  const viewers = v('viewers'), revenue = v('revenue'), buyers = v('buyers');
+  const aov = v('aov'), avgTime = parseTime(document.getElementById('avgTime').value);
+  const interactions = v('interactions'), newFollowers = v('newFollowers'), reservations = v('reservations');
+  const tRec = v('trafficRec'), tNote = v('trafficNote'), tRes = v('trafficReserve'), tRet = v('trafficReturn');
+  const gFem = v('genderFemale'), sHigh = v('spendingHigh');
+  const age = document.getElementById('ageGroup').value, sess = v('sessionNum');
+
+  const iRate = viewers ? interactions / viewers * 100 : 0;
+  const fRate = viewers ? newFollowers / viewers * 100 : 0;
+  const cRate = viewers ? buyers / viewers * 100 : 0;
+
+  const gauges = [
+    {l:'互动率',v:iRate.toFixed(1)+'%',p:Math.min(iRate/20*100,100),c:gaugeColor(iRate,10,5,10)},
+    {l:'关注率',v:fRate.toFixed(1)+'%',p:Math.min(fRate/10*100,100),c:gaugeColor(fRate,5,3,5)},
+    {l:'转化率',v:cRate.toFixed(2)+'%',p:Math.min(cRate/4*100,100),c:gaugeColor(cRate,2,1,2)},
+    {l:'观看时长',v:Math.floor(avgTime/60)+'′'+String(avgTime%60).padStart(2,'0')+'″',p:Math.min(avgTime/600*100,100),c:gaugeColor(avgTime,300,120,300)},
+    {l:'人均成交',v:'¥'+aov.toFixed(0),p:Math.min(aov/400*100,100),c:aov>150?'var(--green)':aov>80?'var(--yellow)':'var(--red)'},
+  ];
+
+  document.getElementById('gauges').innerHTML = gauges.map(g =>
+    `<div class="gauge-card"><div class="gauge-label">${g.l}</div><div class="gauge-value" style="color:${g.c}">${g.v}</div><div class="gauge-bar"><div class="gauge-fill" style="width:${g.p}%;background:${g.c}"></div></div></div>`
+  ).join('');
+
+  let fs = tRec>70?'<span class="tag tag-green">平台推流中</span> 问题在留存/互动'
+    :tRec>40?'<span class="tag tag-yellow">推流减弱</span> 检查互动率'
+    :tRec>20?'<span class="tag tag-red">推流减少</span> 查违规/换时段'
+    :'<span class="tag tag-red">推流不足</span> 换时段+投薯条';
+
+  let diag = `<div class="analysis-block"><h3>📡 流量诊断</h3>
+    <div class="flow-row">
+      <div class="flow-step">推荐流<br><span class="flow-val">${tRec}%</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">笔记引流<br><span class="flow-val">${tNote}%</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">预约进入<br><span class="flow-val">${tRes}%</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">回访<br><span class="flow-val">${tRet}%</span></div>
+    </div><div>${fs}</div><ul class="insight">
+    ${tNote===0?'<li>📌 <strong>笔记引流=0</strong> — 直播前没发预告笔记</li>':''}
+    ${tRes===0?'<li>📌 <strong>预约=0</strong> — 没做预热，观众不知道开播</li>':''}
+    ${tRet===0?'<li>📌 <strong>回访=0</strong> — 没固定开播时间</li>':''}
+    </ul></div>`;
+
+  const ti=(v,lo,mi,hi,rev)=>rev?(v<=hi?'tag-green':v<=mi?'tag-yellow':'tag-red'):(v>=hi?'tag-green':v>=mi?'tag-yellow':'tag-red');
+  const tl=(v,lo,mi,hi,rev)=>rev?(v<=hi?'优秀':v<=mi?'一般':'需提升'):(v>=hi?'优秀':v>=mi?'一般':'需提升');
+
+  diag += `<div class="analysis-block"><h3>💬 互动诊断 <span class="tag ${ti(iRate,10,5,10)}">${tl(iRate,10,5,10)}</span></h3>
+    <p style="color:#b0b8c8;margin-bottom:6px">互动率 ${iRate.toFixed(1)}%（${interactions}人 / ${viewers}人观看）</p>
+    ${iRate<5?'<div class="highlight"><strong>⚠ 互动率<5%</strong> → 平台判定内容无趣，减少推流</div>':''}
+    ${iRate>=5&&iRate<10?'<div class="highlight"><strong>⚡ 互动率'+iRate.toFixed(1)+'%</strong> → 达标，冲>10%拿更多推流</div>':''}
+    ${iRate>=10?'<div class="highlight"><strong>🔥 互动率>10%</strong> → 平台加大推流</div>':''}
+    <ul class="insight"><li>开场3分钟不卖货，先互动</li><li>每5分钟：「刚进来的扣个1」</li><li>福袋设「关注+评论」</li></ul></div>`;
+
+  diag += `<div class="analysis-block"><h3>⏱ 留存诊断 <span class="tag ${ti(avgTime,300,120,300)}">${tl(avgTime,300,120,300)}</span></h3>
+    <p style="color:#b0b8c8;margin-bottom:6px">平均观看 ${Math.floor(avgTime/60)}分${String(avgTime%60).padStart(2,'0')}秒</p>
+    ${avgTime<120?'<div class="highlight"><strong>⚠ 留存<2min</strong> → 前30秒做利益点，别上来报价</div>':''}
+    <ul class="insight"><li>开场制造悬念/福利钩子</li><li>每10分钟放新款式</li></ul></div>`;
+
+  diag += `<div class="analysis-block"><h3>🛒 转化诊断</h3>
+    <p style="color:#b0b8c8;margin-bottom:6px">成交${buyers}人 / ${viewers}人 = <strong style="color:#e0e0e8">${cRate.toFixed(2)}%</strong> | 客单价 <strong style="color:#e0e0e8">¥${aov.toFixed(0)}</strong></p>
+    ${cRate<1?'<div class="highlight"><strong>⚠ 转化率<1%</strong> — 检查价格/逼单话术/展示</div>':''}
+    ${sHigh>50?`<div class="highlight"><strong>💡 高消费力${sHigh}%</strong> — 可推高价款</div>`:''}</div>`;
+
+  if (sess>=1&&sess<=7) diag += `<div class="analysis-block"><h3>🌱 新手扶持期</h3>
+    <div class="highlight">第 <strong>${sess}</strong> 场，扶持期内（3-7场）。第4场后流量降≠账号问题。准备：固定节奏+预告笔记+上新。</div></div>`;
+
+  diag += `<div class="analysis-block"><h3>🔧 优化建议</h3><ul class="insight">
+    <li><strong>流量：</strong>${tNote===0?'开播前2天发预告笔记':'保持预告节奏'}；开场30分钟多互动</li>
+    <li><strong>留人：</strong>${avgTime<180?'前30秒抛悬念/福利':'保持开场节奏'}</li>
+    <li><strong>转化：</strong>${cRate<1.5?'话术加对比，结尾逼单':'优化逼单'}</li>
+    <li><strong>节奏：</strong>固定时间每周≥3场</li></ul></div>`;
+
+  document.getElementById('diagnosis').innerHTML = diag;
+  document.getElementById('results').style.display = 'block';
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+}
+</script>
+</body>
+</html>
